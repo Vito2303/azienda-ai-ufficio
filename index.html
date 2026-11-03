@@ -1,1 +1,474 @@
-FILE_CONTENT_PLACEHOLDER
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Ufficio Azienda AI – 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-screen 3D scene, floating HUD top, feed bottom-left, bot panel slides in as a bottom sheet / side card */
+:root{
+  --bg:#0d1117; --panel:rgba(16,22,30,.88); --line:rgba(140,190,255,.16);
+  --fg:#e6edf5; --muted:#8b98a9; --accent:#4fd1c5; --warm:#ffb454;
+  --display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px}
+#scene{position:fixed;inset:0;touch-action:none}
+#scene canvas{display:block}
+#boot{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:calc(100% - 40px);text-align:center}
+#boot.err{color:#ffb4a8;border-color:#a84a3a}
+.hud{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:10px;align-items:flex-start;justify-content:space-between;pointer-events:none;z-index:5}
+.brand{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;backdrop-filter:blur(8px);min-width:0}
+.brand h1{margin:0;font-family:var(--display);font-size:17px;letter-spacing:.04em;text-transform:uppercase}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.brand .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px;box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.tools{pointer-events:auto;display:flex;flex-direction:column;gap:6px}
+.tools button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-family:var(--display);font-size:18px;cursor:pointer;backdrop-filter:blur(8px)}
+.tools button:hover{border-color:var(--accent)}
+.tools button:focus-visible,.chip:focus-visible,#send:focus-visible,#close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tools .sm{font-size:11px;letter-spacing:.04em}
+#feed{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(340px,calc(100% - 32px));max-height:30vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;z-index:4;backdrop-filter:blur(8px)}
+#feed h2{margin:0 0 6px;font-family:var(--display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#feed ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.35}
+#feed li b{font-weight:600}
+#feed time{font-family:var(--mono);color:var(--muted);font-size:11px;margin-right:6px}
+.bubbles{position:fixed;inset:0;pointer-events:none;z-index:3}
+.tag{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+.say{max-width:190px;background:#f4f7fb;color:#111821;border-radius:12px;padding:6px 9px;font-size:12.5px;line-height:1.3;box-shadow:0 4px 14px rgba(0,0,0,.35);position:relative;opacity:0;transition:opacity .25s}
+.say.on{opacity:1}
+.say:after{content:"";position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-top-color:#f4f7fb;border-bottom:0}
+.name{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:rgba(10,14,20,.75);border:1px solid currentColor}
+#panel{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:calc(70px + env(safe-area-inset-top,0px));width:min(360px,calc(100% - 32px));max-height:calc(100% - 100px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;z-index:6;backdrop-filter:blur(12px);overflow:hidden}
+#panel header{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+#panel .dot{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:700;color:#0d1117}
+#panel h3{margin:0;font-family:var(--display);font-size:16px;letter-spacing:.03em}
+#panel .role{color:var(--muted);font-size:12px}
+#close{margin-left:auto;background:none;border:1px solid var(--line);color:var(--fg);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px}
+.status{padding:8px 14px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line)}
+.status b{color:var(--warm);font-weight:500}
+#log{flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.msg{max-width:85%;padding:7px 10px;border-radius:10px;line-height:1.38;font-size:13px}
+.msg.me{align-self:flex-end;background:#1f6f6a;color:#eafffd}
+.msg.bot{align-self:flex-start;background:#1b2330;border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:var(--body)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+form{display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--line)}
+#msg{flex:1;min-width:0;background:#0b1016;border:1px solid var(--line);border-radius:9px;color:var(--fg);padding:9px 10px;font:inherit}
+#msg:focus{outline:none;border-color:var(--accent)}
+#send{background:var(--accent);color:#06201e;border:0;border-radius:9px;padding:0 14px;font-family:var(--display);font-weight:700;cursor:pointer}
+.hint{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));right:max(16px,env(safe-area-inset-right,0px));font-size:11.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px;z-index:4;max-width:220px}
+@media (max-width:640px){
+  #panel{top:auto;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));width:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-height:58%}
+  #feed{max-height:22vh;width:min(300px,calc(100% - 32px))}
+  .hint{display:none}
+  .say{max-width:150px;font-size:11.5px}
+}
+@media (prefers-reduced-motion:reduce){.brand .live{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="scene" aria-label="Ufficio 3D con i bot"></div>
+<div class="bubbles" id="bubbles"></div>
+
+<div class="hud">
+  <div class="brand">
+    <h1><span class="live"></span>Azienda AI</h1>
+    <p id="clock">Ufficio virtuale · 6 bot in servizio</p>
+  </div>
+  <div class="tools">
+    <button id="zin" aria-label="Avvicina">+</button>
+    <button id="zout" aria-label="Allontana">−</button>
+    <button id="reset" class="sm" aria-label="Visuale intera">ALL</button>
+    <button id="meet" class="sm" aria-label="Convoca riunione">RIU</button>
+  </div>
+</div>
+
+<section id="feed" aria-live="polite">
+  <h2>Feed comunicazioni</h2>
+  <ol id="feedList"></ol>
+</section>
+
+<div class="hint">Trascina per ruotare · rotella o pizzico per lo zoom · clicca un bot per parlarci</div>
+
+<aside id="panel" hidden>
+  <header>
+    <div class="dot" id="pDot">C</div>
+    <div><h3 id="pName">CEO</h3><div class="role" id="pRole">Monitoraggio & strategia</div></div>
+    <button id="close" aria-label="Chiudi">✕</button>
+  </header>
+  <div class="status">Sta facendo: <b id="pStatus">—</b></div>
+  <div id="log"></div>
+  <div class="chips" id="chips"></div>
+  <form id="form"><input id="msg" autocomplete="off" placeholder="Scrivi al bot…"><button id="send">Invia</button></form>
+</aside>
+
+<div id="boot" role="status">Carico l'ufficio…</div>
+<script>
+window.addEventListener('error',function(e){var b=document.getElementById('boot');if(!b)return;b.hidden=false;b.className='err';b.textContent='Errore: '+(e.message||'risorsa non caricata')+(e.filename?' ('+e.filename.split('/').pop()+':'+e.lineno+')':'');},true);
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="document.getElementById('boot').className='err';document.getElementById('boot').textContent='Non riesco a caricare il motore 3D (three.js). Controlla la connessione e ricarica.'"></script>
+<script>
+(function(){
+if(!window.THREE)return;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+
+/* ---------- Scena ---------- */
+const host = $('#scene');
+let renderer;
+try{ renderer = new THREE.WebGLRenderer({antialias:true}); }
+catch(err){ const b=$('#boot'); b.className='err'; b.textContent='Il tuo dispositivo non ha attivato WebGL, serve per la grafica 3D.'; return; }
+const MOBILE = Math.min(innerWidth,innerHeight) < 700;
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog = new THREE.Fog(0x0d1117, 40, 80);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+camera.position.set(14, 18, 20);
+/* Controlli orbitali integrati: trascina = ruota, rotella/pizzico = zoom, 2 dita = sposta */
+const controls = (function(cam, el){
+  const c={target:new THREE.Vector3(),minDistance:4,maxDistance:45,maxPolar:Math.PI*0.47,minPolar:0.15};
+  let dTheta=0,dPhi=0,scale=1; const pan=new THREE.Vector3();
+  const pts=new Map(); let lastPinch=0,lastMid=null;
+  el.addEventListener('pointerdown',e=>{el.setPointerCapture&&el.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});lastPinch=0;lastMid=null;});
+  el.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return; const p=pts.get(e.pointerId); const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX;p.y=e.clientY;
+    const h=el.clientHeight||innerHeight;
+    if(pts.size===1){dTheta-=2*Math.PI*dx/h*0.5; dPhi-=2*Math.PI*dy/h*0.5;}
+    else if(pts.size===2){const a=[...pts.values()];const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);const mid={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2};
+      if(lastPinch) scale*=lastPinch/d; lastPinch=d;
+      if(lastMid){const dist=cam.position.distanceTo(c.target);const k=dist/h*1.2;const right=new THREE.Vector3().setFromMatrixColumn(cam.matrix,0);const fwd=new THREE.Vector3().crossVectors(cam.up,right);
+        pan.addScaledVector(right,-(mid.x-lastMid.x)*k).addScaledVector(fwd,(mid.y-lastMid.y)*k);} lastMid=mid;}
+  });
+  const up=e=>{pts.delete(e.pointerId);lastPinch=0;lastMid=null;};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();scale*=e.deltaY>0?1.12:0.89;},{passive:false});
+  c.update=function(){
+    const off=cam.position.clone().sub(c.target); const s=new THREE.Spherical().setFromVector3(off);
+    s.theta+=dTheta; s.phi=Math.min(c.maxPolar,Math.max(c.minPolar,s.phi+dPhi)); s.radius=Math.min(c.maxDistance,Math.max(c.minDistance,s.radius*scale));
+    c.target.add(pan); c.target.x=Math.max(-13,Math.min(13,c.target.x)); c.target.z=Math.max(-9,Math.min(9,c.target.z));
+    off.setFromSpherical(s); cam.position.copy(c.target).add(off); cam.lookAt(c.target);
+    dTheta=0; dPhi=0; pan.set(0,0,0); scale=1;
+  };
+  return c;
+})(camera, renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x1a1f28, 0.55));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(10,20,8); sun.castShadow = true;
+sun.shadow.mapSize.set(MOBILE?1024:2048,MOBILE?1024:2048);
+Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,near:1,far:60});
+scene.add(sun);
+const warm = new THREE.PointLight(0xffb454, 0.6, 18); warm.position.set(8,4,0); scene.add(warm);
+
+const M = (c,o={}) => new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.7,metalness:.05},o));
+function box(w,h,d,mat,x,y,z,parent=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m;}
+
+/* Pavimento e pareti */
+const W=26, D=18;
+const floor = box(W,0.2,D,M(0x2a313c,{roughness:.9}),0,-0.1,0);
+const grid = new THREE.GridHelper(W,26,0x3a4452,0x323a46); grid.position.y=0.01; grid.scale.z=D/W; scene.add(grid);
+const wallM = M(0x3b4555);
+box(W,4,0.3,wallM,0,2,-D/2);
+box(0.3,4,D,wallM,-W/2,2,0);
+// finestre luminose
+for(let i=-10;i<=10;i+=5){ box(3.4,1.8,0.05,M(0x8fd3ff,{emissive:0x4fa9e0,emissiveIntensity:.6}),i,2.4,-D/2+0.18); }
+// insegna
+const signC=document.createElement('canvas');signC.width=512;signC.height=96;const sx=signC.getContext('2d');
+sx.fillStyle='#0d1117';sx.fillRect(0,0,512,96);sx.fillStyle='#4fd1c5';sx.font='700 54px "Chakra Petch", sans-serif';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('AZIENDA  AI',256,50);
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(5,0.95),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signC)}));
+sign.position.set(-W/2+0.17,2.9,-1);sign.rotation.y=Math.PI/2;scene.add(sign);
+document.fonts && document.fonts.ready.then(()=>{sx.fillStyle='#0d1117';sx.fillRect(0,0,512,96);sx.fillStyle='#4fd1c5';sx.fillText('AZIENDA  AI',256,50);sign.material.map.needsUpdate=true;});
+
+/* Scrivanie */
+const deskM=M(0xc9b391,{roughness:.6}), legM=M(0x222831,{metalness:.5}), screenM=M(0x0e141b), chairM=M(0x2d3a4a);
+const screens=[];
+function desk(x,z,face){ // face: 1 = bot stands at z+?, monitors face the worker
+  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y = face>0?0:Math.PI; scene.add(g);
+  box(2.4,0.08,1.1,deskM,0,0.92,0,g);
+  [[-1.1,-0.45],[1.1,-0.45],[-1.1,0.45],[1.1,0.45]].forEach(([a,b])=>box(0.07,0.9,0.07,legM,a,0.45,b,g));
+  box(0.9,0.55,0.05,screenM,-0.25,1.33,-0.3,g);
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(0.82,0.47),new THREE.MeshBasicMaterial({color:0x2b6cb0}));
+  scr.position.set(-0.25,1.33,-0.27);g.add(scr);screens.push(scr);
+  box(0.06,0.3,0.06,legM,-0.25,1.06,-0.32,g);
+  box(0.6,0.03,0.2,M(0x1a1f27),-0.2,0.975,0.1,g); // tastiera
+  box(0.12,0.16,0.12,M(0xe8e1d4),0.75,1.04,-0.1,g); // tazza
+  // sedia (dietro al bot)
+  const ch=box(0.6,0.08,0.6,chairM,1.0,0.55,1.0,g); box(0.6,0.7,0.08,chairM,1.0,0.95,1.3,g); box(0.08,0.5,0.08,legM,1.0,0.28,1.0,g);
+  return g;
+}
+
+/* Hub riunioni */
+const hub=new THREE.Group(); hub.position.set(8,0,0); scene.add(hub);
+const tbl=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,0.1,40),M(0x1f2833,{metalness:.3,roughness:.4}));tbl.position.y=0.85;tbl.castShadow=tbl.receiveShadow=true;hub.add(tbl);
+const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.4,0.85,16),legM);ped.position.y=0.42;hub.add(ped);
+const holo=new THREE.Mesh(new THREE.IcosahedronGeometry(0.45,1),new THREE.MeshBasicMaterial({color:0x4fd1c5,wireframe:true,transparent:true,opacity:.8}));holo.position.y=1.7;hub.add(holo);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(0.7,0.02,8,48),new THREE.MeshBasicMaterial({color:0x4fd1c5}));ring.position.y=1.7;hub.add(ring);
+
+/* Angolo caffè */
+const COFFEE=new THREE.Vector3(-10,0,6);
+box(1.4,1.1,0.6,M(0x3a2f28),COFFEE.x,0.55,COFFEE.z);
+box(0.3,0.4,0.3,M(0x222),COFFEE.x-0.3,1.2,COFFEE.z); // macchina
+box(0.15,0.2,0.15,M(0xe8e1d4),COFFEE.x+0.3,1.2,COFFEE.z);
+
+/* ---------- Bot umanoidi ---------- */
+const ROLES=[
+ {id:'ceo',name:'CEO',role:'Monitoraggio & strategia',color:0xe94560,desk:[-8, -5,1],status:'Coordina il team',idle:['Controllo token','Priorità aggiornate','Report pronto'],replies:['Strategia allineata.','Token sotto controllo.','Prossimo obiettivo definito.']},
+ {id:'dev',name:'Sviluppatore',role:'Codice & debugging',color:0x00ff9d,desk:[-8, 2,1],status:'In attesa di task',idle:['Scrivo codice','Debug in corso','Test superati'],replies:['Modulo pronto.','Bug fixato.','Build ok.']},
+ {id:'mkt',name:'Marketing',role:'Contenuti & campagne',color:0xff6b6b,desk:[2, -5,1],status:'Piano social',idle:['Calendario editoriale','Copy pronto','Campagna live'],replies:['Post programmato.','Engagement in crescita.','Strategia aggiornata.']},
+ {id:'ana',name:'Analista',role:'Dati & report',color:0x4ecdc4,desk:[2, 2,1],status:'Analisi trend',idle:['Dati elaborati','Report settimanale','Insight pronti'],replies:['Trend positivi.','Report inviato.','Metriche ok.']},
+ {id:'des',name:'Designer',role:'Visual & idee',color:0xa855f7,desk:[-3, 5,-1],status:'Concept creativi',idle:['Moodboard pronto','Visual generato','Revisioni fatte'],replies:['Concept approvato.','Varianti inviate.','Stile allineato.']},
+ {id:'ast',name:'Assistente',role:'Task & note',color:0xf9c74f,desk:[5, 5,-1],status:'Organizza log',idle:['Note aggiornate','Task assegnati','Log pulito'],replies:['Tutto registrato.','Promemoria impostato.','Team allineato.']}
+];
+
+function limb(x,y,h,mat,parent){const m=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,h,8),mat);m.position.set(x,y-h/2,0);m.castShadow=true;parent.add(m);return m;}
+function makeBot(r){
+  const g=new THREE.Group(); scene.add(g);
+  const skin=M(0xf0d5c0), dark=M(0x1a1a1a), acc=M(r.color);
+  const hips=new THREE.Group(); hips.position.y=0.9; g.add(hips);
+  const torso=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.55,0.25),acc); torso.position.y=0.25; torso.castShadow=true; hips.add(torso);
+  const head=new THREE.Group(); head.position.y=0.7; hips.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.22,16,12),skin); skull.castShadow=true; head.add(skull);
+  const eyes=[]; [[-0.08,0.02,0.18],[0.08,0.02,0.18]].forEach(p=>{const e=new THREE.Mesh(new THREE.SphereGeometry(0.03,8,6),M(0x111)); e.position.set(...p); head.add(e); eyes.push(e);});
+  const armL=limb(-0.3,0.3,0.55,skin,hips), armR=limb(0.3,0.3,0.55,skin,hips);
+  const legL=limb(-0.13,0.02,0.72,dark,hips), legR=limb(0.13,0.02,0.72,dark,hips);
+  // anello a terra (selezione)
+  const sel=new THREE.Mesh(new THREE.RingGeometry(0.5,0.62,36),new THREE.MeshBasicMaterial({color:r.color,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  sel.rotation.x=-Math.PI/2; sel.position.y=0.03; g.add(sel);
+  const [dx,dz,face]=r.desk; desk(dx,dz,face);
+  const home=new THREE.Vector3(dx-0.2,0,dz+face*0.75);
+  g.position.copy(home); g.rotation.y = face>0?Math.PI:0;
+  // tag DOM
+  const tag=document.createElement('div'); tag.className='tag';
+  const say=document.createElement('div'); say.className='say';
+  const nm=document.createElement('div'); nm.className='name'; nm.textContent=r.name; nm.style.color='#'+r.color.toString(16).padStart(6,'0');
+  tag.append(say,nm); $('#bubbles').appendChild(tag);
+  const b={r,g,hips,head,armL,armR,legL,legR,sel,eyes,tag,say,home,homeYaw:g.rotation.y,
+    state:'work',path:[],t:Math.random()*10,next:3+Math.random()*6,sayUntil:0,partner:null,talkLeft:0,status:r.status,hex:'#'+r.color.toString(16).padStart(6,'0'),queue:[]};
+  g.traverse(o=>{o.userData.bot=b;});
+  bots.push(b); return b;
+}
+const bots=[];
+ROLES.forEach(makeBot);
+const byId=id=>bots.find(b=>b.r.id===id);
+
+/* ---------- Comportamento ---------- */
+function speak(b,text,dur=3.5){b.say.textContent=text;b.say.classList.add('on');b.sayUntil=clock+dur;}
+const AISLE_Z=0;
+function planPath(b,target){
+  const p=b.g.position; const pts=[];
+  if(Math.abs(p.z-AISLE_Z)>0.6) pts.push(new THREE.Vector3(p.x,0,Math.sign(p.z)*2.2), new THREE.Vector3(p.x,0,AISLE_Z));
+  if(Math.abs(target.z-AISLE_Z)>0.6){ pts.push(new THREE.Vector3(target.x,0,AISLE_Z), new THREE.Vector3(target.x,0,Math.sign(target.z)*2.2)); }
+  pts.push(target.clone()); b.path=pts; b.state='walk';
+}
+function goHome(b,status){ b.after='work'; planPath(b,b.home); b.status=status||b.r.status; refreshPanel(); }
+
+const TALKS=[
+ ['ceo','dev','A che punto è il modulo?','Test quasi finiti, domani lo vedi.'],
+ ['mkt','des','Mi serve il visual per il lancio.','Ti mando tre varianti entro sera.'],
+ ['ana','ceo','I dati di questa settimana sono buoni.','Mettili in prima pagina nel report.'],
+ ['ast','dev','Ho aggiornato il log con il tuo task.','Grazie, lo chiudo appena posso.'],
+ ['des','ana','Quali colori convertono meglio?','Toni freddi, +12% di clic.'],
+ ['mkt','ana','Che orario pubblico i post?','Tra le 18 e le 20 rendono di più.'],
+ ['ceo','ast','Programma la riunione di lunedì.','Fatto, alle 9:30 all\'hub.'],
+ ['dev','des','Il bottone è 2px fuori asse.','Lo sistemo. Occhio di falco.']
+];
+function startTalk(){
+  const free=bots.filter(b=>b.state==='work');
+  const opts=TALKS.filter(t=>free.includes(byId(t[0]))&&free.includes(byId(t[1])));
+  if(!opts.length) return;
+  const t=opts[Math.floor(Math.random()*opts.length)];
+  const a=byId(t[0]), c=byId(t[1]);
+  // a va da c
+  const target=c.g.position.clone(); const dirx = target.x>a.g.position.x? -0.9:0.9;
+  const spot=new THREE.Vector3(c.home.x+ (Math.abs(c.home.z)>1?0:dirx), 0, c.home.z + (c.home.z>0?-1.1:1.1));
+  a.after='talk'; a.partner=c; a.script=t; a.status='Parlo con '+c.r.name; planPath(a,spot);
+  c.state='wait'; c.status='Ascolto '+a.r.name; refreshPanel();
+}
+function coffeeRun(){
+  const free=bots.filter(b=>b.state==='work'); if(!free.length) return;
+  const b=free[Math.floor(Math.random()*free.length)];
+  b.after='coffee'; b.status='Pausa caffè'; planPath(b,COFFEE.clone().add(new THREE.Vector3(Math.random()*.6,0,(Math.random()-.5)*1.4))); refreshPanel();
+}
+function meeting(){
+  addFeed('Hub','Riunione convocata: tutti al tavolo centrale.');
+  bots.forEach((b,i)=>{const a=i/bots.length*Math.PI*2; const spot=new THREE.Vector3(8+Math.cos(a)*2.3,0,Math.sin(a)*2.3);
+    if(b.partner){b.partner.state='work';} b.partner=null; b.after='meet'; b.status='In riunione all\'hub'; b.meetIdx=i; planPath(b,spot);});
+  meetingUntil=clock+18; meetLine=0; refreshPanel();
+}
+let meetingUntil=0, meetLine=0, nextMeetLine=0;
+const MEET=[['ceo','Ok team, punto della situazione.'],['dev','Modulo al 90%, test in corso.'],['mkt','Piano social approvato, si parte.'],['ana','Trend in crescita sui bot di assistenza.'],['des','Concept pronto, aspetto feedback.'],['ast','Ho preso nota di tutto nel log.'],['ceo','Perfetto. Tutti al lavoro!']];
+
+/* ---------- Feed ---------- */
+function addFeed(who,text){
+  const li=document.createElement('li'); const d=new Date();
+  const b=bots.find(x=>x.r.name===who);
+  li.innerHTML=`<time>${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</time><b style="color:${b?b.hex:'var(--accent)'}">${who}:</b> `;
+  li.append(document.createTextNode(text));
+  const list=$('#feedList'); list.prepend(li); while(list.children.length>30) list.lastChild.remove();
+}
+addFeed('Hub','Team pronto. In attesa del focus aziendale.');
+addFeed('CEO','Regole ottimizzazione token attive. Report lunedì.');
+
+/* ---------- Pannello interazione ---------- */
+let selected=null;
+function refreshPanel(){ if(selected) $('#pStatus').textContent=selected.status; }
+function openPanel(b){
+  if(selected) selected.sel.material.opacity=0;
+  selected=b; b.sel.material.opacity=.9;
+  $('#pDot').style.background=b.hex; $('#pDot').textContent=b.r.name[0];
+  $('#pName').textContent=b.r.name; $('#pRole').textContent=b.r.role; refreshPanel();
+  const log=$('#log'); log.innerHTML='';
+  if(!b.history) b.history=[{who:'bot',t:`Ciao Vito! Sono il ${b.r.name}. ${b.status}. Cosa ti serve?`}];
+  b.history.forEach(m=>appendMsg(m.who,m.t,false));
+  const chips=$('#chips'); chips.innerHTML='';
+  ['Cosa stai facendo?','Assegna un task','Vieni qui','Pausa caffè','Torna al lavoro'].forEach(t=>{const c=document.createElement('button');c.type='button';c.className='chip';c.textContent=t;c.onclick=()=>talkTo(t);chips.appendChild(c);});
+  $('#panel').hidden=false; focusOn(b);
+}
+function closePanel(){ if(selected) selected.sel.material.opacity=0; selected=null; $('#panel').hidden=true; }
+function appendMsg(who,t,store=true){ const d=document.createElement('div'); d.className='msg '+who; d.textContent=t; $('#log').appendChild(d); $('#log').scrollTop=1e6; if(store&&selected) selected.history.push({who,t}); }
+let pendingTask=false;
+function talkTo(text){
+  const b=selected; if(!b) return; appendMsg('me',text);
+  const q=text.toLowerCase(); let rep;
+  if(pendingTask){ pendingTask=false; b.status='Task: '+text; rep=`Preso in carico: "${text}". Lo segno nel log condiviso.`; addFeed(b.r.name,'Nuovo task da Vito: '+text); addFeed('Assistente','Log aggiornato con il task del '+b.r.name+'.'); refreshPanel(); }
+  else if(/assegna|task|compito/.test(q)){ pendingTask=true; rep='Dimmi il task in una frase e me ne occupo.'; }
+  else if(/cosa (stai|fai)|stato|a che punto/.test(q)){ rep=`In questo momento: ${b.status.toLowerCase()}. `+b.r.replies[0]; }
+  else if(/vieni|qui|avvicina/.test(q)){ rep='Arrivo!'; b.after='present'; b.status='Davanti a te'; if(b.partner){b.partner.state='work';b.partner=null;} const p=b.g.position.clone(); const toCam=camera.position.clone().sub(p).setY(0).normalize().multiplyScalar(1.5); planPath(b,p.clone().add(toCam)); }
+  else if(/caff|pausa/.test(q)){ rep='Volentieri, due minuti e torno.'; b.after='coffee'; b.status='Pausa caffè'; planPath(b,COFFEE.clone()); }
+  else if(/torna|lavoro/.test(q)){ rep='Torno alla scrivania.'; goHome(b); }
+  else if(/riunion/.test(q)){ rep='Convoco tutti all\'hub.'; meeting(); }
+  else if(/ciao|salve|buongiorno/.test(q)){ rep=`Ciao Vito! Qui ${b.r.name}, sempre operativo.`; }
+  else rep=b.r.replies[Math.floor(Math.random()*b.r.replies.length)];
+  setTimeout(()=>{appendMsg('bot',rep); speak(b,rep.length>70?rep.slice(0,68)+'…':rep,4); refreshPanel();},350);
+}
+$('#form').addEventListener('submit',e=>{e.preventDefault();const v=$('#msg').value.trim();if(!v)return;$('#msg').value='';talkTo(v);});
+$('#close').onclick=closePanel;
+
+/* ---------- Camera ---------- */
+let camTween=null;
+function tweenCam(toPos,toTarget,dur=1){camTween={fp:camera.position.clone(),ft:controls.target.clone(),tp:toPos,tt:toTarget,t:0,dur:reduce?0.01:dur};}
+function focusOn(b){const t=b.g.position.clone().setY(1.2);const dir=camera.position.clone().sub(controls.target).normalize();tweenCam(t.clone().add(dir.multiplyScalar(6)),t);}
+function zoom(f){const dir=camera.position.clone().sub(controls.target);const len=THREE.MathUtils.clamp(dir.length()*f,controls.minDistance,controls.maxDistance);tweenCam(controls.target.clone().add(dir.setLength(len)),controls.target.clone(),.4);}
+$('#zin').onclick=()=>zoom(.65); $('#zout').onclick=()=>zoom(1.5);
+$('#reset').onclick=()=>{closePanel();tweenCam(new THREE.Vector3(14,18,20),new THREE.Vector3(0,0,0));};
+$('#meet').onclick=meeting;
+
+/* Click sui bot */
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let down=null;
+renderer.domElement.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6) return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(bots.map(b=>b.g),true).find(h=>h.object.userData.bot);
+  if(hit) openPanel(hit.object.userData.bot);
+});
+renderer.domElement.addEventListener('pointermove',e=>{
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(mouse,camera);
+  renderer.domElement.style.cursor = ray.intersectObjects(bots.map(b=>b.g),true).length?'pointer':'grab';
+});
+
+/* ---------- Loop ---------- */
+function resize(){const w=host.clientWidth||innerWidth,h=host.clientHeight||innerHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',resize); if(window.ResizeObserver) new ResizeObserver(resize).observe(host); resize();
+if((host.clientWidth||innerWidth)<640) camera.position.set(16,24,28);
+camera.lookAt(0,0,0);
+
+let clock=0, last=performance.now(), nextTalk=4, nextCoffee=14;
+const tmp=new THREE.Vector3();
+function lookAtYaw(b,p){return Math.atan2(p.x-b.g.position.x,p.z-b.g.position.z);}
+function turn(b,yaw,dt){let d=yaw-b.g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));b.g.rotation.y+=d*Math.min(1,dt*8);}
+
+function tick(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now; clock+=dt;
+  if(clock>nextTalk){nextTalk=clock+6+Math.random()*6; if(clock>meetingUntil) startTalk();}
+  if(clock>nextCoffee){nextCoffee=clock+20+Math.random()*15; if(clock>meetingUntil) coffeeRun();}
+
+  // riunione
+  if(meetingUntil && clock<meetingUntil && clock>nextMeetLine && bots.every(b=>b.state==='meet')){
+    const [id,t]=MEET[meetLine%MEET.length]; const b=byId(id); speak(b,t,2.4); addFeed(b.r.name,t); meetLine++; nextMeetLine=clock+2.6;
+    if(meetLine>=MEET.length) meetingUntil=clock+1.5;
+  }
+  if(meetingUntil && clock>meetingUntil){ meetingUntil=0; bots.forEach(b=>{if(b.state==='meet')goHome(b);}); }
+
+  bots.forEach(b=>{
+    b.t+=dt; const s=b.state;
+    let walk=0;
+    if(s==='walk'){
+      const tgt=b.path[0];
+      tmp.copy(tgt).sub(b.g.position); tmp.y=0; const dist=tmp.length();
+      if(dist<0.08){ b.path.shift(); if(!b.path.length){ b.state=b.after; b.t=0;
+          if(b.state==='talk'){ speak(b,b.script[2],3); addFeed(b.r.name,b.script[2]); b.talkLeft=6.5; b.replied=false; }
+          if(b.state==='work'){ b.status=b.status.startsWith('Task')?b.status:b.r.status; refreshPanel(); }
+          if(b.state==='coffee'){ b.talkLeft=5; speak(b,'☕ Ricarica in corso…',2.5); }
+          if(b.state==='present'){ speak(b,'Eccomi! Dimmi pure.',3); }
+        } }
+      else { const sp=1.6*dt; b.g.position.addScaledVector(tmp.normalize(),Math.min(sp,dist)); turn(b,Math.atan2(tmp.x,tmp.z),dt); walk=1; }
+    }
+    // pose
+    const k=b.t*8;
+    if(walk){ b.legL.rotation.x=Math.sin(k)*.6; b.legR.rotation.x=-Math.sin(k)*.6; b.armL.rotation.x=-Math.sin(k)*.5; b.armR.rotation.x=Math.sin(k)*.5; b.hips.position.y=.9+Math.abs(Math.sin(k))*.04; b.armL.rotation.z=b.armR.rotation.z=0;}
+    else { b.legL.rotation.x*=.85; b.legR.rotation.x*=.85; b.hips.position.y=.9+Math.sin(b.t*2)*.01; }
+    if(s==='work'){ turn(b,b.homeYaw,dt); b.armL.rotation.x=-1.1+Math.sin(b.t*14)*.12; b.armR.rotation.x=-1.1+Math.cos(b.t*13)*.12; b.head.rotation.x=.12+Math.sin(b.t*.7)*.04; b.head.rotation.y=Math.sin(b.t*.4)*.15;
+      b.next-=dt; if(b.next<0){b.next=7+Math.random()*9; if(Math.random()<.5) speak(b,b.r.idle[Math.floor(Math.random()*b.r.idle.length)],2.6);} }
+    if(s==='wait'||s==='listen'){ b.armL.rotation.x*=.9;b.armR.rotation.x*=.9; }
+    if(s==='talk'){ const c=b.partner; turn(b,lookAtYaw(b,c.g.position),dt); turn(c,lookAtYaw(c,b.g.position),dt);
+      b.armR.rotation.x=-.6+Math.sin(b.t*5)*.3; b.head.rotation.x=0; b.head.rotation.y=0; c.armL.rotation.x*=.9; c.armR.rotation.x*=.9; c.head.rotation.y=0; c.head.rotation.x=Math.sin(b.t*3)*.08;
+      b.talkLeft-=dt; if(!b.replied && b.talkLeft<3.4){ b.replied=true; speak(c,b.script[3],3); addFeed(c.r.name,b.script[3]); }
+      if(b.talkLeft<0){ c.state='work'; c.status=c.r.status; b.partner=null; goHome(b); } }
+    if(s==='coffee'){ turn(b,-Math.PI/2,dt); b.armR.rotation.x=-1.4; b.talkLeft-=dt; if(b.talkLeft<0) goHome(b); }
+    if(s==='meet'){ turn(b,lookAtYaw(b,hub.position),dt); b.armL.rotation.x*=.9; b.armR.rotation.x=-.2+Math.sin(b.t*2)*.05; b.head.rotation.x=0; }
+    if(s==='present'){ turn(b,lookAtYaw(b,camera.position),dt); b.armR.rotation.x=-2.6+Math.sin(b.t*6)*.25; b.armR.rotation.z=.3; b.head.rotation.x=-.15;
+      if(b.t>5){b.armR.rotation.z=0; b.state='idle'; b.t=0;} }
+    if(s==='idle'){ b.armR.rotation.x*=.9; b.armR.rotation.z*=.9; if(b.t>20) goHome(b); }
+    b.eyes.forEach(e=>e.scale.y = (b.t%4)<.12?.15:1);
+    if(b.sayUntil && clock>b.sayUntil){ b.say.classList.remove('on'); b.sayUntil=0; }
+    if(selected===b) b.sel.rotation.z+=dt;
+  });
+
+  screens.forEach((s,i)=>{const v=.5+.5*Math.sin(clock*1.5+i*1.7);s.material.color.setRGB(.12+v*.08,.35+v*.1,.6+v*.15);});
+  holo.rotation.y+=dt*.6; holo.rotation.x+=dt*.25; holo.position.y=1.7+Math.sin(clock*1.4)*.08;
+
+  if(camTween){camTween.t+=dt/camTween.dur;const e=Math.min(1,camTween.t),q=e<.5?2*e*e:1-Math.pow(-2*e+2,2)/2;
+    camera.position.lerpVectors(camTween.fp,camTween.tp,q);controls.target.lerpVectors(camTween.ft,camTween.tt,q);if(e>=1)camTween=null;}
+  else if(selected && selected.state==='walk'){ const t=selected.g.position.clone().setY(1.2); const d=t.sub(controls.target).multiplyScalar(Math.min(1,dt*3)); controls.target.add(d); camera.position.add(d); }
+  controls.update();
+  renderer.render(scene,camera);
+
+  // tag a schermo
+  const dist=camera.position.distanceTo(controls.target);
+  bots.forEach(b=>{
+    tmp.copy(b.g.position); tmp.y+=2.35; tmp.project(camera);
+    const vis=tmp.z<1 && Math.abs(tmp.x)<1.1 && Math.abs(tmp.y)<1.1;
+    b.tag.style.display=vis?'flex':'none';
+    if(vis){ b.tag.style.left=((tmp.x+1)/2*host.clientWidth)+'px'; b.tag.style.top=((1-tmp.y)/2*host.clientHeight)+'px';
+      const sc=THREE.MathUtils.clamp(14/dist,.6,1.1); b.tag.style.transform=`translate(-50%,-100%) scale(${sc})`; b.tag.style.zIndex=Math.round((1-tmp.z)*1000); }
+  });
+  requestAnimationFrame(tick);
+}
+$('#boot').hidden=true;
+requestAnimationFrame(tick);
+setInterval(()=>{const d=new Date();$('#clock').textContent=`Ufficio virtuale · ${bots.filter(b=>b.state==='work').length}/6 alle scrivanie · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;},1000);
+})();
+</script>
+</body>
+</html>
